@@ -4,6 +4,83 @@ import smtplib
 from email.mime.text import MIMEText
 from email.mime.application import MIMEApplication
 from email.mime.multipart import MIMEMultipart
+import socket
+import hashlib
+import re
+from cryptography.hazmat.primitives import padding
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from cryptography.hazmat.backends import default_backend
+
+def decrypt_string(key, ciphertext):
+    key = key.encode()
+    key = key[:16]
+    backend = default_backend()
+
+    # Static Initialization Vector (IV)
+    iv = b'ThisIsAStaticIV.'  # 16-byte IV
+
+    # Create the cipher object
+    cipher = Cipher(algorithms.AES(key), modes.CBC(iv), backend=backend)
+    decryptor = cipher.decryptor()
+
+    # Decrypt the ciphertext
+    decrypted_data = decryptor.update(bytes.fromhex(ciphertext)) + decryptor.finalize()
+
+    # Remove the padding from the decrypted plaintext
+    unpadder = padding.PKCS7(128).unpadder()
+    plaintext = unpadder.update(decrypted_data) + unpadder.finalize()
+
+    # Return the decrypted plaintext
+    return plaintext.decode()
+
+def encrypt_string(hash_string):
+    sha_signature = \
+        hashlib.sha256(hash_string.encode()).hexdigest()
+    return sha_signature
+
+def extract_keys(string):
+    pattern = r'(\S+)\s*,\s*(\S+)'
+    match = re.match(pattern, string)
+    if match:
+        return match.groups()
+    else:
+        return None
+
+def get_master_key(username,password):
+    host = "127.0.0.1"  # Server's IP address
+    port = 10000        # Server's port number
+    # Create a TCP socket
+    client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    # Connect to the server
+    client_socket.connect((host, port))
+    encryptedpass = encrypt_string(password)
+    # Send a message to the server
+    message = username + "\n" + encryptedpass
+    client_socket.send(message.encode())
+    # Receive and print the server's response
+    data = client_socket.recv(2048)
+    client_socket.close()
+    masterkey = (decrypt_string(encryptedpass,data.decode()))
+    print(masterkey)
+    return masterkey
+def getsessionkeys(user1,user2):
+    host = "127.0.0.1"  # Server's IP address
+    port = 10000        # Server's port number
+    # Create a TCP socket
+    client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    # Connect to the server
+    client_socket.connect((host, port))
+    message = user1 + "," + user2
+    client_socket.send(message.encode())
+    data = client_socket.recv(2048)
+    client_socket.close()
+    sessionkeys = extract_keys(data.decode())
+    print(sessionkeys) # you have decrypt this using the masterkey bakry
+    return sessionkeys
+
+#get_master_key("username" , "password")
+#getsessionkeys("username 1" , "username 2")
+
 class App:
     sender = "1807211@eng.asu.edu.eg"
     password = ""

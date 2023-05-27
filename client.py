@@ -17,7 +17,7 @@ from cryptography.hazmat.primitives import padding
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.backends import default_backend
 
-
+#encrypts a string using the AES cipher and outputs the cipher text as the hexadecimal representation of it
 def encrypt_string(key, plaintext):
     key = key.encode()
     key = key[:16]
@@ -40,6 +40,7 @@ def encrypt_string(key, plaintext):
     # Return the ciphertext as a hexadecimal string
     return ciphertext.hex()
 
+#decrypts what the previous function encrypts
 def decrypt_string(key, ciphertext):
     key = key.encode()
     key = key[:16]
@@ -62,11 +63,13 @@ def decrypt_string(key, ciphertext):
     # Return the decrypted plaintext
     return plaintext.decode()
 
+#produces the SHA256 hash of a string
 def hash_string(hash_string):
     sha_signature = \
         hashlib.sha256(hash_string.encode()).hexdigest()
     return sha_signature
 
+#extracts encrypted sessioni keys from a string formatted as key1,key2
 def extract_keys(string):
     pattern = r'(\S+)\s*,\s*(\S+)'
     match = re.match(pattern, string)
@@ -75,6 +78,7 @@ def extract_keys(string):
     else:
         return None
 
+#get my master key request 
 def get_master_key(username,password):
     host = "127.0.0.1"  # Server's IP address
     port = 10000        # Server's port number
@@ -92,6 +96,8 @@ def get_master_key(username,password):
     masterkey = (decrypt_string(encryptedpass,data.decode()))
     #print(masterkey)
     return masterkey
+
+#get my session key request
 def getsessionkeys(user1,user2):
     host = "127.0.0.1"  # Server's IP address
     port = 10000        # Server's port number
@@ -106,9 +112,6 @@ def getsessionkeys(user1,user2):
     sessionkeys = extract_keys(data.decode())
     #print(sessionkeys) # you have decrypt this using the masterkey bakry
     return sessionkeys
-
-#get_master_key("username" , "password")
-#getsessionkeys("username 1" , "username 2")
 
 
 class Login_Page:

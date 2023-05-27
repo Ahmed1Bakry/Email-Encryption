@@ -201,7 +201,6 @@ class Login_Page:
 
             masterKey = get_master_key(sender, password)
 
-            print(masterKey)
         else:
             messagebox.showwarning("Login Failed - Acess Denied", "Username or Password incorrect!")
 
@@ -237,8 +236,9 @@ class App:
         root.geometry(alignstr)
         root.resizable(width=False, height=False)
 
-        tab_parent = ttk.Notebook(root)
 
+        # Creating tabs 
+        tab_parent = ttk.Notebook(root)
 
         tab1 = ttk.Frame(tab_parent)
         tab2 = ttk.Frame(tab_parent)
@@ -352,27 +352,33 @@ class App:
         global password
         global masterKey
 
-
+        # Getting the session key from serveer
         sessionKeys = getsessionkeys(sender, recipients)
 
+        # Decrypting the session key
         decrypted_session_key = decrypt_string(masterKey, sessionKeys[0])
-        print(decrypted_session_key)
 
+        # Encrypting the message using the session key
         encrypted_message = encrypt_string(decrypted_session_key, body)
-        print(encrypted_message)
-        decrypted_message = decrypt_string(decrypted_session_key, encrypted_message)
-        print(decrypted_message)
+
+        # Adding email header
         msg = MIMEMultipart()
         msg['Subject'] = subject
         msg['From'] = sender
         msg['To'] = recipients
-        msg.attach(MIMEText("This is dummy email"))
+        msg.attach(MIMEText("This is an encrypted Message"))
+
+        # Attatching the encrypted message
         part=MIMEApplication(encrypted_message, Name="RealMessageBody.txt")
         part['Content-Disposition']='attachment; filename=RealMessageBody.txt'
         msg.attach(part)
+
+        # Attatching the session key
         part=MIMEApplication(sessionKeys[1],Name="wrappedkey.txt")
         part['Content-Disposition']='attachment; filename=wrappedkey.txt'
         msg.attach(part)
+
+        # Connecting to the smtp server and sending the email
         smtp_server = smtplib.SMTP("smtp-mail.outlook.com", port=587)
         print("Connected")
         smtp_server.starttls()
@@ -382,7 +388,10 @@ class App:
         smtp_server.sendmail(sender, recipients, msg.as_string())
         print("mail sent")
         smtp_server.quit()
+
     def button_Send_command(self):
+        '''This funtion is called when the send button is pressed'''
+
         tovar=self.email_To.get()
         print(tovar)
         subject = self.email_Subject.get()
@@ -391,19 +400,28 @@ class App:
         self.send_email(subject, body,att, tovar)
     
     def onselect(self, evt):
+        '''This funtion is called when an email is selected'''
+
+        # Getting the selected list item index
         w = evt.widget
         index = int(w.curselection()[0])
+
+        # Filling the from text box
         self.from_box.delete(1.0, tk.END) 
         self.from_box.insert(tk.END, self.mails[index]['from'])
+
+        # Filling the encrypted message box
         self.encrypted_Body.delete(1.0, tk.END) 
         self.encrypted_Body.insert(tk.END, self.mails[index]['RealMessageBody.txt'].decode())
 
+        # Decrypting the session key
         global masterKey
         decrypted_sessionKey = decrypt_string(masterKey, self.mails[index]['wrappedkey.txt'].decode())
-        print(decrypted_sessionKey)
 
+        # Decrypting the Message
         decrypted_message = decrypt_string(decrypted_sessionKey, self.mails[index]['RealMessageBody.txt'].decode())
 
+        # Filling the decrypted message box
         self.decrypted_Body.delete(1.0, tk.END) 
         self.decrypted_Body.insert(tk.END, decrypted_message)
 
@@ -422,10 +440,12 @@ class App:
         print("From:", From)
         return subject, From
     def button_refresh_command(self):
+        global sender
+        global password
 
         imap = imaplib.IMAP4_SSL("imap.zoho.com")  # establish connection
  
-        imap.login("ahmedbakry", "Ahmed654321")  # login
+        imap.login(sender, password)  # login
         
         #print(imap.list())  # print various inboxes
         status, messages = imap.select("INBOX")  # select inbox
@@ -477,6 +497,7 @@ class App:
         
         imap.close()
 
+        # Populating email box list 
         self.listbox.delete(0, tk.END) 
         for i in range(len(self.mails)):
             self.listbox.insert(i, self.mails[i]['subject'])

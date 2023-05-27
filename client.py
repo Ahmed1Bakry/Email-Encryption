@@ -353,10 +353,12 @@ class App:
         sessionKeys = getsessionkeys(sender, recipients)
 
         decrypted_session_key = decrypt_string(masterKey, sessionKeys[0])
-        print(sessionKeys)
+        print(decrypted_session_key)
 
         encrypted_message = encrypt_string(decrypted_session_key, body)
-
+        print(encrypted_message)
+        decrypted_message = decrypt_string(decrypted_session_key, encrypted_message)
+        print(decrypted_message)
         msg = MIMEMultipart()
         msg['Subject'] = subject
         msg['From'] = sender
@@ -365,7 +367,7 @@ class App:
         part=MIMEApplication(encrypted_message, Name="RealMessageBody.txt")
         part['Content-Disposition']='attachment; filename=RealMessageBody.txt'
         msg.attach(part)
-        part=MIMEApplication(decrypted_session_key,Name="wrappedkey.txt")
+        part=MIMEApplication(sessionKeys[1],Name="wrappedkey.txt")
         part['Content-Disposition']='attachment; filename=wrappedkey.txt'
         msg.attach(part)
         smtp_server = smtplib.SMTP("smtp-mail.outlook.com", port=587)
@@ -394,7 +396,7 @@ class App:
         self.encrypted_Body.insert(tk.END, self.mails[index]['RealMessageBody.txt'].decode())
 
         global masterKey
-        decrypted_sessionKey = decrypt_string(masterKey, self.mails[index]['wrappedkey.txt'])
+        decrypted_sessionKey = decrypt_string(masterKey, self.mails[index]['wrappedkey.txt'].decode())
         print(decrypted_sessionKey)
 
         decrypted_message = decrypt_string(decrypted_sessionKey, self.mails[index]['RealMessageBody.txt'].decode())

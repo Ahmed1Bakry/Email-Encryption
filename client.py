@@ -17,6 +17,29 @@ from cryptography.hazmat.primitives import padding
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.backends import default_backend
 
+
+def encrypt_string(key, plaintext):
+    key = key.encode()
+    key = key[:16]
+    backend = default_backend()
+
+    # Static Initialization Vector (IV)
+    iv = b'ThisIsAStaticIV.'  # 16-byte IV
+
+    # Pad the plaintext
+    padder = padding.PKCS7(128).padder()
+    padded_plaintext = padder.update(plaintext.encode()) + padder.finalize()
+
+    # Create the cipher object
+    cipher = Cipher(algorithms.AES(key), modes.CBC(iv), backend=backend)
+    encryptor = cipher.encryptor()
+
+    # Encrypt the plaintext
+    ciphertext = encryptor.update(padded_plaintext) + encryptor.finalize()
+
+    # Return the ciphertext as a hexadecimal string
+    return ciphertext.hex()
+
 def decrypt_string(key, ciphertext):
     key = key.encode()
     key = key[:16]
@@ -39,7 +62,7 @@ def decrypt_string(key, ciphertext):
     # Return the decrypted plaintext
     return plaintext.decode()
 
-def encrypt_string(hash_string):
+def hash_string(hash_string):
     sha_signature = \
         hashlib.sha256(hash_string.encode()).hexdigest()
     return sha_signature
@@ -59,7 +82,7 @@ def get_master_key(username,password):
     client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     # Connect to the server
     client_socket.connect((host, port))
-    encryptedpass = encrypt_string(password)
+    encryptedpass = hash_string(password)
     # Send a message to the server
     message = username + "\n" + encryptedpass
     client_socket.send(message.encode())
@@ -67,7 +90,7 @@ def get_master_key(username,password):
     data = client_socket.recv(2048)
     client_socket.close()
     masterkey = (decrypt_string(encryptedpass,data.decode()))
-    print(masterkey)
+    #print(masterkey)
     return masterkey
 def getsessionkeys(user1,user2):
     host = "127.0.0.1"  # Server's IP address
@@ -81,7 +104,7 @@ def getsessionkeys(user1,user2):
     data = client_socket.recv(2048)
     client_socket.close()
     sessionkeys = extract_keys(data.decode())
-    print(sessionkeys) # you have decrypt this using the masterkey bakry
+    #print(sessionkeys) # you have decrypt this using the masterkey bakry
     return sessionkeys
 
 #get_master_key("username" , "password")
@@ -168,6 +191,14 @@ class Login_Page:
             sender = name
             password = passw
 
+
+            # Get the master key
+
+            global masterKey
+
+            masterKey = get_master_key(sender, password)
+
+            print(masterKey)
         else:
             messagebox.showwarning("Login Failed - Acess Denied", "Username or Password incorrect!")
 
@@ -278,6 +309,7 @@ class App:
 
         self.listbox.place(x=10,y=60,width=200,height=500)
 
+        # From part
         label_from=tk.Label(tab2)
         label_from["font"] = ft
         label_from["fg"] = "#333333"
@@ -287,8 +319,9 @@ class App:
 
         self.from_box=tk.Text(tab2)
 
-        self.from_box.place(x=310,y=10,width=300,height=25)
+        self.from_box.place(x=310,y=10,width=250,height=25)
 
+        # Encrypted text box
         l1=tk.Label(tab2)
         l1["font"] = ft
         l1["fg"] = "#333333"
@@ -297,22 +330,42 @@ class App:
         l1.place(x=350,y=60,width=100,height=20)
 
         self.encrypted_Body=tk.Text(tab2)
-        self.encrypted_Body.place(x=240,y=100,width=340,height=450)
+        self.encrypted_Body.place(x=240,y=100,width=340,height=200)
+
+        # Encrypted text box
+        l1=tk.Label(tab2)
+        l1["font"] = ft
+        l1["fg"] = "#333333"
+        l1["justify"] = "center"
+        l1["text"] = "Decrypted Text"
+        l1.place(x=350,y=320,width=100,height=20)
+
+        self.decrypted_Body=tk.Text(tab2)
+        self.decrypted_Body.place(x=240,y=350,width=340,height=200)
         
 
     def send_email(self, subject, body,attach, recipients):
         global sender
         global password
+        global masterKey
+
+
+        sessionKeys = getsessionkeys(sender, recipients)
+
+        decrypted_session_key = decrypt_string(masterKey, sessionKeys[0])
+        print(sessionKeys)
+
+        encrypted_message = encrypt_string(decrypted_session_key, body)
 
         msg = MIMEMultipart()
         msg['Subject'] = subject
         msg['From'] = sender
         msg['To'] = recipients
         msg.attach(MIMEText("This is dummy email"))
-        part=MIMEApplication(body,Name="RealMessageBody.txt")
+        part=MIMEApplication(encrypted_message, Name="RealMessageBody.txt")
         part['Content-Disposition']='attachment; filename=RealMessageBody.txt'
         msg.attach(part)
-        part=MIMEApplication("encrypted key goes here",Name="wrappedkey.txt")
+        part=MIMEApplication(decrypted_session_key,Name="wrappedkey.txt")
         part['Content-Disposition']='attachment; filename=wrappedkey.txt'
         msg.attach(part)
         smtp_server = smtplib.SMTP("smtp-mail.outlook.com", port=587)
@@ -339,6 +392,15 @@ class App:
         self.from_box.insert(tk.END, self.mails[index]['from'])
         self.encrypted_Body.delete(1.0, tk.END) 
         self.encrypted_Body.insert(tk.END, self.mails[index]['RealMessageBody.txt'].decode())
+
+        global masterKey
+        decrypted_sessionKey = decrypt_string(masterKey, self.mails[index]['wrappedkey.txt'])
+        print(decrypted_sessionKey)
+
+        decrypted_message = decrypt_string(decrypted_sessionKey, self.mails[index]['RealMessageBody.txt'].decode())
+
+        self.decrypted_Body.delete(1.0, tk.END) 
+        self.decrypted_Body.insert(tk.END, decrypted_message)
 
     def obtain_header(self, msg):
         # decode the email subject
@@ -410,7 +472,7 @@ class App:
         
         imap.close()
 
-
+        self.listbox.delete(0, tk.END) 
         for i in range(len(self.mails)):
             self.listbox.insert(i, self.mails[i]['subject'])
 

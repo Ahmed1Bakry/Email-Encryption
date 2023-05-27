@@ -120,6 +120,7 @@ class ClientThread(threading.Thread):
                     if find_masterkey(usernames[0]) and find_masterkey(usernames[0]):
                         masterkeys = [find_masterkey(usernames[0]),find_masterkey(usernames[1])]
                         sessionkey = generate_masterkey()
+                        print(sessionkey)
                         encryptedsessionkeys = [encrypt_string(masterkeys[0],sessionkey) ,encrypt_string(masterkeys[1],sessionkey)]
                         message = encryptedsessionkeys[0] + "," + encryptedsessionkeys[1] + ""
                         self.csocket.send(message.encode())
